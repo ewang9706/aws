@@ -1,0 +1,84 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'Amazom EKS Sample Elb - application load balancer'
+
+Parameters:
+  # Vpc:
+  #   Type: String
+  #   Default: vpc-0a9ba350c968f334b
+  #   Description: 'Vpc in which the load balancer will be created'
+  # PublicSubnet01:
+  #   Type: String
+  #   Default: subnet-0791b383603113a4f
+  #   Description: Public subnet the load blanacer will be created in
+  # PublicSubnet02:
+  #   Type: String
+  #   Default: subnet-02f87284b20063d80
+  #   Description: Public subnet the load blanacer will be created in
+  # SecurityGroupForHttpAccess:
+  #   Type: String
+  #   Default: sg-0aca3d601a96c617b
+  #   Description: Security group that allows http access
+  VpcStackName:
+    Type: String
+    Default: eks-vpc
+    Description: The stack that creates the vpc for this elb
+  Ec2Instance01:
+    Type: String
+    Default: i-007814eb8305e2255
+    Description: 'ec2 instance for the load balancer'
+
+Resources:
+  ApplicationLoadBalancer:
+    Type: AWS::ElasticLoadBalancingV2::LoadBalancer
+    Properties:
+      Type: application
+      IpAddressType: ipv4
+      Scheme: internet-facing
+      Subnets:
+        - Fn::ImportValue:
+            Fn::Sub: '${VpcStackName}-PublicSubnet01'
+        - Fn::ImportValue:
+            Fn::Sub: '${VpcStackName}-PublicSubnet02'
+      SecurityGroups:
+        - Fn::ImportValue: 
+            Fn::Sub: '${VpcStackName}-HttpAccessSecurityGroupID'
+      Tags:
+        - Key: Name
+          Value: alb-for-eks
+  
+  TargetGroup:
+    Type: AWS::ElasticLoadBalancingV2::TargetGroup
+    Properties:
+      HealthCheckEnabled: true
+      HealthCheckIntervalSeconds: '30'
+      HealthCheckTimeoutSeconds: '5'
+      HealthCheckPath: /
+      HealthCheckProtocol: HTTP
+      HealthCheckPort: '80'
+      Protocol: HTTP
+      Port: '80'
+      TargetType: instance
+      VpcId: 
+        Fn::ImportValue: 
+          Fn::Sub: '${VpcStackName}-VpcID'
+      Targets:
+        - Id: 
+            Ref: Ec2Instance01
+          Port: '80'
+
+  HttpListener:
+    Type: AWS::ElasticLoadBalancingV2::Listener
+    DependsOn: 
+      - ApplicationLoadBalancer
+      - TargetGroup
+    Properties:
+      DefaultActions:
+        - Type: forward
+          TargetGroupArn: 
+            Ref: TargetGroup
+      LoadBalancerArn: 
+        Ref: ApplicationLoadBalancer
+      Protocol: HTTP
+      Port: '80'
+
+# Outputs:
