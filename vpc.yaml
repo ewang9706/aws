@@ -425,6 +425,25 @@ Resources:
           FromPort: 443
           ToPort: 443
           CidrIp: 0.0.0.0/0
+  
+  SecurityGroupHttpAccessInternal:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Allowing internal http/https access
+      GroupName: Http-access-internal
+      VpcId:
+        Ref: VPC
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          SourceSecurityGroupId:
+            Ref: SecurityGroupHttpAccess
+        - IpProtocol: tcp
+          FromPort: 443
+          ToPort: 443
+          SourceSecurityGroupId:
+            Ref: SecurityGroupHttpAccess
       
 Outputs:
   Vpc:
@@ -450,6 +469,18 @@ Outputs:
           - 
             - Ref: AWS::StackName
             - HttpAccessSecurityGroupID
+
+  HttpAccessInternalSecurityGroup:
+    Description: The security froup allowing internal http/https access
+    Value: 
+      Ref: SecurityGroupHttpAccessInternal
+    Export:
+      Name: 
+        Fn::Join: 
+          - '-'
+          - 
+            - Ref: AWS::StackName
+            - HttpAccessInternalSecurityGroupID
 
   PublicSubnet01:
     Description: The public subnet 01
