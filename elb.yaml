@@ -40,16 +40,16 @@ Parameters:
     Type: AWS::EC2::KeyPair::KeyName
     Default: iplusnz-1
     Description: The key pair used to connect to ec2 instances
-  PublicSubnet:
-    Type: AWS::EC2::Subnet::Id
-    # AllowedValues:
-    #   - subnet-0791b383603113a4f
-    #   - subnet-02f87284b20063d80
-      # - Fn::ImportValue:
-      #     Fn::Sub: '${VpcStackName}-PublicSubnet01'
-      # - Fn::ImportValue:
-      #     Fn::Sub: '${VpcStackName}-PublicSubnet02'
-    Description: The subnet in which ec2 instances will be created
+  # PublicSubnet:
+  #   Type: AWS::EC2::Subnet::Id
+  #   # AllowedValues:
+  #   #   - subnet-0791b383603113a4f
+  #   #   - subnet-02f87284b20063d80
+  #     # - Fn::ImportValue:
+  #     #     Fn::Sub: '${VpcStackName}-PublicSubnet01'
+  #     # - Fn::ImportValue:
+  #     #     Fn::Sub: '${VpcStackName}-PublicSubnet02'
+  #   Description: The subnet in which ec2 instances will be created
 
 Resources:
   ApplicationLoadBalancer:
@@ -85,10 +85,10 @@ Resources:
       VpcId: 
         Fn::ImportValue: 
           Fn::Sub: '${VpcStackName}-VpcID'
-      Targets:
-        - Id: 
-            Ref: EC2InstanceHttpServer01
-          Port: '80'
+      # Targets:
+      #   - Id: 
+      #       Ref: EC2InstanceHttpServer01
+      #     Port: '80'
 
   HttpListener:
     Type: AWS::ElasticLoadBalancingV2::Listener
@@ -105,33 +105,33 @@ Resources:
       Protocol: HTTP
       Port: '80'
 
-  EC2InstanceHttpServer01:
-    Type: AWS::EC2::Instance
-    Properties:
-      ImageId: 
-        Fn::FindInMap:
-          - RegionMap
-          - Ref:
-              AWS::Region
-          - HVM64
-      InstanceType: 
-        Ref: Ec2InstanceSize
-      # This should be in a private subnet. But because no NAT gateway is avavilable, so using a public subnet here.
-      SubnetId:
-        Ref: PublicSubnet 
-      SecurityGroupIds:
-        - Fn::ImportValue:
-            Fn::Sub: '${VpcStackName}-HttpAccessInternalSecurityGroupID'
-      KeyName: 
-        Ref: KeyName01
-      UserData:
-        Fn::Base64: !Sub |
-          #!/bin/bash -xe
-          yum update -y
-          yum install httpd -y
-          curl http://169.254.169.254/latest/meta-data/instance-id > /var/www/html/index.html
-          chkconfig httpd on
-          service httpd start
+  # EC2InstanceHttpServer01:
+  #   Type: AWS::EC2::Instance
+  #   Properties:
+  #     ImageId: 
+  #       Fn::FindInMap:
+  #         - RegionMap
+  #         - Ref:
+  #             AWS::Region
+  #         - HVM64
+  #     InstanceType: 
+  #       Ref: Ec2InstanceSize
+  #     # This should be in a private subnet. But because no NAT gateway is avavilable, so using a public subnet here.
+  #     SubnetId:
+  #       Ref: PublicSubnet 
+  #     SecurityGroupIds:
+  #       - Fn::ImportValue:
+  #           Fn::Sub: '${VpcStackName}-HttpAccessInternalSecurityGroupID'
+  #     KeyName: 
+  #       Ref: KeyName01
+  #     UserData:
+  #       Fn::Base64: !Sub |
+  #         #!/bin/bash -xe
+  #         yum update -y
+  #         yum install httpd -y
+  #         curl http://169.254.169.254/latest/meta-data/instance-id > /var/www/html/index.html
+  #         chkconfig httpd on
+  #         service httpd start
 
   EC2LaunchConfiguration:
     Type: AWS::AutoScaling::LaunchConfiguration
@@ -208,8 +208,10 @@ Resources:
           Fn::GetAtt: 
             - EC2LaunchTemplate
             - LatestVersionNumber
-      MaxSize: 4
-      MinSize: 2
+      MaxSize: 3
+      MinSize: 1
+      TargetGroupARNs:
+        - Ref: TargetGroup
       VPCZoneIdentifier:
         - Fn::ImportValue:
             Fn::Sub: '${VpcStackName}-PublicSubnet01'
@@ -225,4 +227,23 @@ Outputs:
     Description: The launch template for the autoscaling group
     Value: 
       Ref: EC2LaunchTemplate
+      
+  ApplicationLoadBalancerDNSName:
+    Description: The application load balancer dns name
+    Value: 
+      Fn::GetAtt:
+        - ApplicationLoadBalancer
+        - DNSName
+
+  ApplicationLoadBalancerARN:
+    Description: The application load balancer resource name
+    Value:
+      Ref: ApplicationLoadBalancer
+    Export: 
+      Name:
+        Fn::Join:
+          - '-'
+          - 
+            - Ref: AWS::StackName
+            - ApplicationLoadBalancerARN
 
